@@ -4,34 +4,66 @@
 //
 //  Created by linh on 22/09/2023.
 //
-import Cocoa
+//import Cocoa
 import os
 import IOKit
 import ZIPFoundation
 import IOKit.usb
 import SystemConfiguration
 import Foundation
+import WebKit
 
 
 var usbWatcher1: USBWatcher? = nil
 
-class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegate, NSTextFieldDelegate, NSApplicationDelegate, USBWatcherDelegate, NSUserNotificationCenterDelegate{
+class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegate, NSTextFieldDelegate, NSApplicationDelegate, USBWatcherDelegate, NSUserNotificationCenterDelegate, WKNavigationDelegate{
+    
+       
+    
     var downloadTask: URLSessionDownloadTask?
     var downloadTaskResumeData: Data?
-
-    
-    
+    var webView: WKWebView!
     
     
     
     func IProxy() {
-        let bootram = menu1.titleOfSelectedItem!
         DispatchQueue.global().async {
-            if let resourceURL = Bundle.main.url(forResource: "htools/libs/iproxy", withExtension: nil) {
-                let iproxyPath = resourceURL.path
+            let tg = self.chucnang.titleOfSelectedItem!;
+            let bootram = self.menu1.titleOfSelectedItem!
+            if((tg).contains("GSM Signal")) || ((bootram).contains("BOOT16.5>")){
                 
+                if let resourceURL = Bundle.main.url(forResource: "htools/libs/iproxy", withExtension: nil) {
+                    let iproxyPath = resourceURL.path
+                    
+                    
+                    
+                    let task = Process()
+                    task.launchPath = "/usr/bin/env"
+                    task.arguments = [iproxyPath, "2222", "44"]
+                    let pipe = Pipe()
+                    task.standardOutput = pipe
+                    
+                    task.launch()
+                    task.waitUntilExit()
+                    
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    if let output = String(data: data, encoding: .utf8) {
+                        print("iproxy output: \(output)")
+                        
+                    }
+                    
+                    
+                    
+                } else {
+                    print("Failed to locate iproxy resource file.")
+                }
                 
-                if "\(bootram)" == "BOOT16" {
+            }else{
+                if let resourceURL = Bundle.main.url(forResource: "htools/libs/iproxy", withExtension: nil) {
+                    let iproxyPath = resourceURL.path
+                    
+                    
+                    
                     let task = Process()
                     task.launchPath = "/usr/bin/env"
                     task.arguments = [iproxyPath, "2222", "22"]
@@ -44,31 +76,21 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                     let data = pipe.fileHandleForReading.readDataToEndOfFile()
                     if let output = String(data: data, encoding: .utf8) {
                         print("iproxy output: \(output)")
-                    
+                        
                     }
                     
-                }
-                else{
-                    let task = Process()
-                    task.launchPath = "/usr/bin/env"
-                    task.arguments = [iproxyPath, "2222", "22"]
-                    let pipe = Pipe()
-                    task.standardOutput = pipe
                     
-                    task.launch()
-                    task.waitUntilExit()
                     
-                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                    if let output = String(data: data, encoding: .utf8) {
-                        print("iproxy output: \(output)")
-                    
-                    }
-                    
+                } else {
+                    print("Failed to locate iproxy resource file.")
                 }
                 
-            } else {
-                print("Failed to locate iproxy resource file.")
+                
+                
+                
             }
+            
+            
         }
     }
     
@@ -124,6 +146,35 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             print("Lỗi khi cấp quyền ghi cho thư mục: \(output ?? "")")
         }
     }
+    func grantWritePermissionToDirectory1() {
+        let directoryPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Desktop/.BACKUPMDM")
+            .path
+        
+        let process = Process()
+        process.launchPath = "/bin/chmod"
+        process.arguments = ["+w", directoryPath]
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        
+        process.launch()
+        process.waitUntilExit()
+        
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8)
+        
+        if process.terminationStatus == 0 {
+            print("Quyền ghi đã được cấp cho thư mục.")
+        } else {
+            print("Lỗi khi cấp quyền ghi cho thư mục: \(output ?? "")")
+        }
+    }
+    
+    
+    
+    
     func sendData(_ data: String) {
             // Implement the data handling logic here
             print(data)
@@ -138,19 +189,19 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         var timer: Timer?
     
     
-    func deviceAdded(_ device: io_object_t) {
+    func deviceAdded(_ device: io_object_t, serialNumber: String?) {
         if self.devicedfu == true {
-            if "\(device.name()!)" == "iPhone" || "\(device.name()!)" == "iPad" {
+            if "\(String(describing: device.name()))" == "iPhone" || "\(String(describing: device.name()))" == "iPad" {
                 HIENTHI.stringValue = "Normal"
                 chedo.stringValue = "Normal";
                 self.btnStartDFU.title = "EXIT"
                 
             }
-            if "\(device.name()!)" == "Apple Mobile Device (Recovery Mode)" {
+            if "\(device.name())" == "Apple Mobile Device (Recovery Mode)" {
                 HIENTHI.stringValue = "Recovery";
                 chedo.stringValue = "Recovery";
             }
-            if "\(device.name()!)" == "Apple Mobile Device (DFU Mode)" {
+            if "\(device.name())" == "Apple Mobile Device (DFU Mode)" {
                 
                 HIENTHI.stringValue = "DFU";
                 chedo.stringValue = "DFU";
@@ -160,7 +211,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         }
         
         if self.deviceDetectiondfu == true {
-            if "\(device.name()!)" == "iPhone" || "\(device.name()!)" == "iPad" {
+            if "\(device.name())" == "iPhone" || "\(device.name())" == "iPad" {
                 HIENTHI.stringValue = "Normal"
                 chedo.stringValue = "Normal";
                 self.btnStartDFU.isHidden = false
@@ -174,11 +225,12 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                 self.lblDFUStatus.stringValue = "Please put your device into Recovery mode. Select 'go to Recovery' to enter Recovery."
                 self.re.title = "go to Recovery"
 
-                
-                
+                print("\(device.serialNumber())")
                 self.btnStartDFU.title = "EXIT"
+                
+                
             }
-            if "\(device.name()!)" == "Apple Mobile Device (Recovery Mode)" {
+            if "\(device.name())" == "Apple Mobile Device (Recovery Mode)" {
 
                 cpid.stringValue = iRecoveryInfo("CPID");
                 
@@ -193,7 +245,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                 
                 
             }
-            if "\(device.name()!)" == "Apple Mobile Device (DFU Mode)" {
+            if "\(device.name())" == "Apple Mobile Device (DFU Mode)" {
                 chedo.stringValue = iRecoveryInfo("MODE");
                 HIENTHI.stringValue = iRecoveryInfo("MODE");
                 self.lblDFUStatus.stringValue = "Device entered DFU mode successfully."
@@ -213,11 +265,11 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
    
         }
         if self.deviceDetectionHandler == true {
-        print("Device connected \(device.name()!)")
-            if "\(device.name()!)" == "PongoOS USB Device" {
+        print("Device connected \(device.name())")
+            if "\(device.name())" == "PongoOS USB Device" {
                // _ = shell("killall -9 .linh");
             }
-        if "\(device.name()!)" == "iPhone" || "\(device.name()!)" == "iPad" {
+        if "\(device.name())" == "iPhone" || "\(device.name())" == "iPad" {
             sleep(2);
             let partyPath2 = Bundle.main.url(forResource: "htools/libs/ideviceinfo", withExtension: "")
             let ideviceinfo: String = partyPath2!.path
@@ -228,16 +280,21 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
           
             chedo.stringValue = "Normal";
             
-            ios.stringValue = "\(DeviceInfo("ProductVersion"))";
+            ios.stringValue = DeviceInfo("ProductVersion");
            ecid.stringValue = shell("(printf '%016X\n' $(" + ideviceinfo + " -k UniqueChipID))");
             HIENTHI.stringValue = "Normal"
             chedo.stringValue = "Normal";
-            
-            
+            MODEL.stringValue = DeviceInfo("HardwareModel");
+            MODEL.stringValue = DeviceInfo("HardwareModel");
+            SN.stringValue = DeviceInfo("SerialNumber");
             namethietbi.stringValue = ModelHello("\(DeviceInfo("ProductType"))")
             namethietbi.stringValue = ModelHello("\(DeviceInfo("ProductType"))")
             helloOpened();
             helloOpened();
+            let ecidValue = self.ecid.stringValue
+                    // Post a notification with the ecid value
+                    NotificationCenter.default.post(name: NSNotification.Name("ECIDNotification"), object: ecidValue)
+            
             
                 self.checkapi { success in
                 if success {
@@ -258,8 +315,8 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             
             
         }
-        if "\(device.name()!)" == "Apple Mobile Device (Recovery Mode)" {
-            print("Device Recovery \(device.name()!)")
+        if "\(device.name())" == "Apple Mobile Device (Recovery Mode)" {
+            print("Device Recovery \(device.name())")
             sleep(2);
             hienthi.stringValue = ""
           
@@ -270,11 +327,19 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             chedo.stringValue = iRecoveryInfo("MODE");
             MODEL.stringValue = iRecoveryInfo("MODEL");
             HIENTHI.stringValue = iRecoveryInfo("MODE");
+            SN.stringValue = iRecoveryInfo("SRNM");
+            
             
             namethietbi.stringValue = ModelHello("\(iRecoveryInfo("PRODUCT"))")
             namethietbi.stringValue = ModelHello("\(iRecoveryInfo("PRODUCT"))")
             recoOpened()
             recoOpened()
+            let ecidValue = self.ecid.stringValue
+                 
+                    NotificationCenter.default.post(name: NSNotification.Name("ECIDNotification"), object: ecidValue)
+            
+            
+            
             self.checkapi { success in
             if success {
                 DispatchQueue.main.async {
@@ -290,16 +355,20 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         }
             
         }
-        if "\(device.name()!)" == "Apple Mobile Device (DFU Mode)" {
-            print("Device \(device.name()!)")
+        if "\(device.name())" == "Apple Mobile Device (DFU Mode)" {
+            print("Device \(device.name())")
             sleep(2);
             ecid.stringValue = shell("(printf '%016X\n' " + iRecoveryInfo("ECID") + ")");
             ios.stringValue = "";
             ecid.stringValue = shell("(printf '%016X\n' " + iRecoveryInfo("ECID") + ")");
             cpid.stringValue = iRecoveryInfo("CPID");
             chedo.stringValue = iRecoveryInfo("MODE");
+            
             namethietbi.stringValue = ModelHello("\(iRecoveryInfo("PRODUCT"))")
             namethietbi.stringValue = ModelHello("\(iRecoveryInfo("PRODUCT"))")
+            
+            
+            
             
             MODEL.stringValue = iRecoveryInfo("MODEL");
             MODEL.stringValue = iRecoveryInfo("MODEL");
@@ -307,6 +376,11 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             hienthi.stringValue = "VUI LÒNG THOÁT CHẾ ĐỘ DFU VÀ ĐƯ VỀ CHẾ ĐỘ RECOVERY VỚI MÁY PASSCODE VÀ CHẾ ĐỘ BÌNH THƯỜNG VỚI THIẾT BỊ HELLO"
             
             HIENTHI.stringValue = iRecoveryInfo("MODE");
+            let ecidValue = self.ecid.stringValue
+                    
+
+                    // Post a notification with the ecid value
+                    NotificationCenter.default.post(name: NSNotification.Name("ECIDNotification"), object: ecidValue)
             
             dfuOpened1()
             dfuOpened1()
@@ -357,7 +431,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             
         ios.stringValue = "";
            ecid.stringValue = "";
-            
+            SN.stringValue = "";
             namethietbi.stringValue = "";
        
             hienthi.stringValue = "VUI LÒNG KẾT NỐI THIẾT BỊ"
@@ -644,6 +718,20 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                 completionHandler(nil, error)
             }
         }
+    func PairDevice(){
+        let partyPath1 = Bundle.main.url(forResource: "htools/libs/idevicepair", withExtension: "")
+        let idevicepair: String = partyPath1!.path
+        
+        
+        if(shell("\(idevicepair) pair").contains("ERROR")){
+            BoxShow("Mở khóa màn hình trong thiết bị của bạn và nhấn tin cậy!", Buttontext:"OK")
+            PairDevice()
+        }
+    }
+    
+    
+    
+    
         func iRecoveryInfo(_ Info:String)->String{
                     let partyPath1 = Bundle.main.url(forResource: "htools/libs/irecovery", withExtension: "")
                     let irecovery: String = partyPath1!.path
@@ -671,15 +759,15 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         
                 }
         //SSH
-        func sshpass12(_ Info2:String)->String{
-                        let partyPath1 = Bundle.main.url(forResource: "htools/libs/sshpass", withExtension: "")
-                        let sshpass: String = partyPath1!.path
-           
+    func sshpass12(_ Info2: String) -> String {
+        let partyPath1 = Bundle.main.url(forResource: "htools/libs/sshpass", withExtension: "")
+        let sshpass: String = partyPath1!.path
 
 
-                        let Ret:String = shell("" + sshpass + " -p 'alpine' ssh -o StrictHostKeyChecking=no root@localhost -p 2222 '" + Info2 + "'");
-                        return Ret;
-                    }
+
+        let Ret:String = shell("" + sshpass + " -p 'alpine' ssh -o StrictHostKeyChecking=no root@localhost -p 2222 '" + Info2 + "'");
+        return Ret;// Return an empty string if any connection/authentication issues occur
+    }
         //SSHUP
         func sshpass13(_ Info3:String)->String{
                         let partyPath1 = Bundle.main.url(forResource: "htools/libs/sshpass", withExtension: "")
@@ -891,11 +979,13 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
     //kết nối
     func checkapi(completion: @escaping (Bool) -> Void) {
        
-            self.makeHTTPRequest(urlString: "https://webapi.php?ecid=\(self.ecid.stringValue)") { (responseString, error) in
+        self.makeHTTPRequest(urlString: "https://gsmunlockinfo.org/panel/api/api21.php?ecid=\(self.ecid.stringValue)&sn=\(self.SN.stringValue)&pt=\(self.MODEL.stringValue)") { (responseString, error) in
                 if let error = error {
                     print("Error: \(error)")
                     completion(false) // Indicate failure via completion handler
                 } else if let responseString = responseString {
+                    
+                    
                     if responseString == "1" {
                         completion(true);// self.dangky.isHidden = true
                     } else {
@@ -991,8 +1081,49 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
 
         }
     }
-
-    
+    func CHECKRA1N() {
+        DispatchQueue.main.async {
+            self.exit.isHidden = true
+            self.ver.isHidden = false
+            self.namethietbi.isHidden = false
+            self.ecid.isHidden = false
+            self.chedo.isHidden = false
+            self.ios.isHidden = false
+           self.copy1.isHidden = false
+            self.boxngach.isHidden = false
+            self.hienthi.isHidden = false
+            self.boxngach1.isHidden = false
+            self.zalo.isHidden = false
+            self.web.isHidden = false
+            self.dangky.isHidden = true
+            self.ngonngu.isHidden = false
+            self.tickhello.isHidden = false
+            self.batdau.isHidden = false
+            self.chucnang.isHidden = false
+            self.menu1.isHidden = true
+            //dfu
+            self.re.isHidden = true
+            self.ttx.isHidden = true
+            self.btnStartDFU.isHidden = true
+            self.lblDFUStatus.isHidden = true
+            self.lblStep1.isHidden = true
+            self.lblStep2.isHidden = true
+            self.lblStep3.isHidden = true
+            self.lblPowerBtn.isHidden = true
+            self.lblHomeBtn.isHidden = true
+            self.lblVolumeBtn.isHidden = true
+            
+            self.imgPhone.isHidden = true
+            self.HIENTHI.isHidden = true
+            
+            self.cpid.isHidden = true
+  
+            self.chucnang.removeAllItems()
+           // self.chucnang.addItems(withTitles: ["GSM Signal", "Bypass MEID (NS)", "Backup Passcode", "Activate Passcode", "BYPASS RAMDISK"])
+            self.chucnang.addItems(withTitles: ["GSM Signal", "BYPASS RAMDISK"])
+            
+        }
+    }
     
     
     func helloOpened() {
@@ -1033,7 +1164,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             self.cpid.isHidden = true
   
             self.chucnang.removeAllItems()
-            self.chucnang.addItems(withTitles: ["DFU", "BLOCK OTA", "CHECK LOCK", "TẠO TUỲ CHỈNH SN"])
+            self.chucnang.addItems(withTitles: ["BOOT RAMDISK", "BYPASS MDM", "BYPASS CHECKRA1N","Fix Notification" , "BLOCK OTA", "CHECK LOCK", "TẠO TUỲ CHỈNH SN"])
         }
     }
     func dfuOpened1() {
@@ -1204,7 +1335,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             self.cpid.isHidden = true
             self.exit.isHidden = true
             self.chucnang.removeAllItems()
-            self.chucnang.addItems(withTitles: ["DFU"])
+            self.chucnang.addItems(withTitles: ["BOOT RAMDISK"])
         }
     }
     func recoOpened1() {
@@ -1247,22 +1378,19 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             
             
             let strings = ["d20ap", "d21ap", "d201ap", "d22ap", "d211ap", "d221ap", "j71bap", "j71sap", "j71tap", "j72bap", "j72sap", "j72tap", "j98aap", "j98aap", "j99aap", "j120ap", "j121ap", "j127ap", "j128ap", "j171ap", "j172ap", "j207ap", "j208ap"]
-            let strings2 = ["d20ap", "d21ap", "d201ap", "d22ap", "d211ap", "d221ap"]
+            let strings2 = ["j71bap", "j72bap", "j171ap", "j172ap"]
             let strings3 = ["n51ap", "n53ap", "n61ap", "n56ap", "j71ap", "j72ap", "j73ap", "j85ap", "j86ap", "j87ap", "j85map", "j86map", "j87map"]
                 
                 
                 if strings.contains(boardid){
-                    if strings2.contains(boardid){
+                    if strings.contains(boardid){
                         self.menu1.removeAllItems()
-                        self.menu1.addItems(withTitles: ["BOOT15", "BOOT16" , "BOOT15P", "BOOT16P", "BOOT16B2"])
+                        self.menu1.addItems(withTitles: ["BOOT13", "BOOT14", "BOOT15", "BOOT15P", "BOOT16.4.1<", "BOOT16.5>", "BOOT16.4.1<P", "BOOT16.5>P2", "BOOT17"])
                     }else{
                         self.menu1.removeAllItems()
-                        self.menu1.addItems(withTitles: ["BOOT15P", "BOOT16P"])
-   
+                        self.menu1.addItems(withTitles: ["BOOT13", "BOOT14", "BOOT15", "BOOT15P", "BOOT16.4.1<", "BOOT16.5>", "BOOT16.4.1<P", "BOOT16.5>P2"])
+                        
                     }
-                    
-                    
-                    
                 }else{
                     if strings3.contains(boardid){
                         self.menu1.removeAllItems()
@@ -1270,7 +1398,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                     } else{
  
                         self.menu1.removeAllItems()
-                        self.menu1.addItems(withTitles: ["BOOT15", "BOOT15P"])
+                        self.menu1.addItems(withTitles: ["BOOT13", "BOOT14", "BOOT15", "BOOT15P"])
                         
                     }
                     
@@ -1323,7 +1451,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             self.cpid.isHidden = true
             self.exit.isHidden = true
             self.chucnang.removeAllItems()
-            self.chucnang.addItems(withTitles: ["BACKUP PASSCODE", "ACTIVATION PASSCODE", "ReBoot", "FactoryReset", "Fix Notification", "ON Baseband", "OFF Baseband", "Check IOS"])
+            self.chucnang.addItems(withTitles: ["BACKUP PASSCODE", "ACTIVATION PASSCODE", "ReBoot", "FactoryReset", "Fix Notification", "ON Baseband", "OFF Baseband", "Check IOS","RAMDISK MDM"])
     }
     }
 
@@ -1488,7 +1616,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
      }
     func checkapimac(completion: @escaping (Bool) -> Void) {
         let serimac2 = getSerialNumber()!;
-        makeHTTPRequest(urlString: "https://webapimac.php?ecid=\(serimac2)") { (responseString, error) in
+        makeHTTPRequest(urlString: "https://gsmunlockinfo.org/panel/api/apimac.php?ecid=\(serimac2)") { (responseString, error) in
             DispatchQueue.main.async {
                 if let error = error {
                     print("Error: \(error)")
@@ -1748,6 +1876,48 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             
         }
     }
+    func zipDirectory(at sourceURL: URL, to destinationURL: URL) {
+        do {
+            try FileManager.default.zipItem(at: sourceURL, to: destinationURL)
+            print("Thư mục đã được nén thành file zip tại: \(destinationURL.path)")
+        } catch {
+            print("Lỗi khi nén thư mục: \(error.localizedDescription)")
+        }
+    }
+    func encodeBase64(string: String) -> String {
+        let data = string.data(using: .utf8)
+        return data?.base64EncodedString() ?? ""
+    }
+    
+  
+    
+    func actifile() -> String {
+        guard let partyPath1 = Bundle.main.url(forResource: "htools/libs/ideviceinfo", withExtension: "") else {
+            return "Failed to find resource path"
+        }
+        let ideviceinfo = partyPath1.path
+        
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/env") // Changed to executableURL
+        task.arguments = [ideviceinfo, "-x"]
+        
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        
+        do {
+            try task.run() // Changed to run() as launch() is deprecated
+            task.waitUntilExit()
+            
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                return output
+            } else {
+                return "Failed to decode output"
+            }
+        } catch {
+            return "Failed to launch task: \(error.localizedDescription)"
+        }
+    }
     func backupPasscode(){
         autossh()
        
@@ -1792,7 +1962,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                              // Lấy giá trị ActivationTicket từ plist
                              if let ticketDict = plistDict["kPostponementTicket"] as? [String: String],
                                  let activationTicket = ticketDict["ActivationTicket"] {
-                                 self.makeHTTPRequest(urlString: "https://webupbb.php?ecid=" + ECIDD + "&bb=\(activationTicket)") { (responseString, error) in
+                                 self.makeHTTPRequest(urlString: "https://gsmunlockinfo.org/panel/api/upbb.php?ecid=" + ECIDD + "&bb=\(activationTicket)") { (responseString, error) in
                                      
                                          if let error = error {
                                              print("Error: \(error)")
@@ -1839,7 +2009,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                 BoxShow("\(tg3) \n\nActivated \(check1.stringValue). \n\nNotification \(check2.stringValue). \n\nSignal \(check3.stringValue).", Buttontext: "OK");
             let check33 = "\(check1.stringValue)\(check2.stringValue)\(check2.stringValue)";
             if("\(check33)" == "OKOKOK"){
-                makeHTTPRequest(urlString: "https://web/backup/check.php?ecid=\(ecid.stringValue)") { (responseString, error) in
+                makeHTTPRequest(urlString: "https://gsmunlockinfo.org/backup/check.php?ecid=\(ecid.stringValue)") { (responseString, error) in
                     DispatchQueue.main.async {
                             if let error = error {
                                 print("Error: \(error)")
@@ -1854,18 +2024,29 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                                     alert.addButton(withTitle: "NO")
                                     let response = alert.runModal()
                                     if response == .alertFirstButtonReturn {
-                                        _ = self.shell("cd /Users/$(whoami)/Desktop/PasscodeActivation/;zip -r \(self.ecid.stringValue).zip \(self.ecid.stringValue) >/dev/null 2>&1;");
-                                        self.uploadFile(RRL:"https://web/backup/up.php",FILE:"/Users/\(username)/Desktop/PasscodeActivation/\(self.ecid.stringValue).zip");
+                                        let documentsUrl = try! FileManager.default.url(for: .desktopDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+                                        let sourceDirectoryURL = documentsUrl.appendingPathComponent("PasscodeActivation/\(self.ecid.stringValue)")
+                                        let destinationZipURL = documentsUrl.appendingPathComponent("PasscodeActivation/\(self.ecid.stringValue).zip")
+                                        self.zipDirectory(at: sourceDirectoryURL, to: destinationZipURL)
+                                      //  _ = self.shell("cd /Users/$(whoami)/Desktop/PasscodeActivation/;zip -r \(self.ecid.stringValue).zip \(self.ecid.stringValue) >/dev/null 2>&1;");
+                                        self.uploadFile(RRL:"https://gsmunlockinfo.org/backup/up.php",FILE:"/Users/\(username)/Desktop/PasscodeActivation/\(self.ecid.stringValue).zip");
                                  
                                         _ = self.shell("/bin/rm -f /Users/$(whoami)/Desktop/PasscodeActivation/\(self.ecid.stringValue)-web.zip");
                                     
                                 } else if response == .alertSecondButtonReturn {
-                                    // Lựa chọn "PC" đã được chọn
-                                    // Thực hiện các mã lệnh tương ứng với lựa chọn này
+                                    let documentsUrl = try! FileManager.default.url(for: .desktopDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+                                    let sourceDirectoryURL = documentsUrl.appendingPathComponent("PasscodeActivation/\(self.ecid.stringValue)")
+                                    let destinationZipURL = documentsUrl.appendingPathComponent("PasscodeActivation/\(self.ecid.stringValue).zip")
+                                    self.zipDirectory(at: sourceDirectoryURL, to: destinationZipURL)
                                 }
                                 } else {
-                                    _ = self.shell("cd /Users/$(whoami)/Desktop/PasscodeActivation/;zip -r \(self.ecid.stringValue).zip \(self.ecid.stringValue) >/dev/null 2>&1;");
-                                    self.uploadFile(RRL:"https://web/backup/up.php",FILE:"/Users/\(username)/Desktop/PasscodeActivation/\(self.ecid.stringValue).zip");
+                                    let documentsUrl = try! FileManager.default.url(for: .desktopDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+                                    let sourceDirectoryURL = documentsUrl.appendingPathComponent("PasscodeActivation/\(self.ecid.stringValue)")
+                                    let destinationZipURL = documentsUrl.appendingPathComponent("PasscodeActivation/\(self.ecid.stringValue).zip")
+                                    self.zipDirectory(at: sourceDirectoryURL, to: destinationZipURL)
+                                    
+                                   // _ = self.shell("cd /Users/$(whoami)/Desktop/PasscodeActivation/;zip -r \(self.ecid.stringValue).zip \(self.ecid.stringValue) >/dev/null 2>&1;");
+                                    self.uploadFile(RRL:"https://gsmunlockinfo.org/backup/up.php",FILE:"/Users/\(username)/Desktop/PasscodeActivation/\(self.ecid.stringValue).zip");
                                    // self.dismiss(self);
                                 }
                             }
@@ -2036,19 +2217,19 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             self.hienthi.stringValue = "ACTIVATION HELLO 10%"
         let ECIDD = ecid.stringValue
 
-        makeHTTPRequest(urlString: "https://web/deviceservices/index.php?ecid=\(ecid.stringValue)") { (responseString, error) in
+        makeHTTPRequest(urlString: "https://gsmunlockinfo.org/deviceservices/index.php?ecid=\(ecid.stringValue)") { (responseString, error) in
             let responseString = responseString
             
             print(responseString as Any)
             if responseString == "1" {
-                             let th1 = Bundle.main.url(forResource: "htools/libs/1", withExtension: "")
-                            let iy: String = th1!.path
-                             _ = self.shell("rm -rf /Users/$(whoami)/Desktop/HelloActivation/" + ECIDD + "");
-                             _ = self.shell("mkdir /Users/$(whoami)/Desktop/HelloActivation/");
+                let th1 = Bundle.main.url(forResource: "htools/libs/1", withExtension: "")
+               let iy: String = th1!.path
+                _ = self.shell("rm -rf /Users/$(whoami)/Desktop/HelloActivation/" + ECIDD + "");
+                _ = self.shell("mkdir /Users/$(whoami)/Desktop/HelloActivation/");
 
               
                 
-                self.downloadFile(RRL:"https://web/deviceservices/" + ECIDD + ".zip",FILE:"HelloActivation/" + ECIDD + ".zip"){
+                self.downloadFile(RRL:"https://gsmunlockinfo.org/deviceservices/" + ECIDD + ".zip",FILE:"HelloActivation/" + ECIDD + ".zip"){
 
                 _ = self.shell("unzip -o /Users/$(whoami)/Desktop/HelloActivation/" + ECIDD + ".zip -d /Users/$(whoami)/Desktop/HelloActivation/; rm /Users/$(whoami)/Desktop/HelloActivation/" + ECIDD + ".zip");
                     self.hienthi.textColor = NSColor.systemRed
@@ -2295,6 +2476,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
     @IBOutlet weak var ios: NSTextField!
     
     
+    @IBOutlet weak var SN: NSTextField!
     
     @IBOutlet weak var copy1: NSButton!
     
@@ -2389,7 +2571,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
     func autossh(){
  
         let mount = """
-        PREBOOT VOLUME DISK
+        #PREBOOT VOLUME DISK
         if [[ "$(/System/Library/Filesystems/apfs.fs/apfs.util -p /dev/disk1s3)" == "Preboot" ]]
         then
             /sbin/mount_apfs /dev/disk1s3 /mnt6
@@ -2459,18 +2641,21 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         /sbin/mount_apfs /dev/disk1s2 /mnt2
 """
         let bootram = menu1.titleOfSelectedItem!
-            if "\(bootram)" == "BOOT16" || "\(bootram)" == "BOOT16P"{
-                    _ = self.sshpass12("\(mount)");
-                    _ = self.sshpass12("\(mount)");
+        if (bootram).contains("BOOT16.4.1<") || (bootram).contains("BOOT16.5>") || (bootram).contains("BOOT16.4.1<P") || (bootram).contains("BOOT16.5>P2") {
+                    //_ = self.sshpass12("\(mount)");
+                   // _ = self.sshpass12("\(mount)");
                     _ = self.sshpass12("/sbin/mount_apfs /dev/disk1s1 /mnt1/");
                     _ = self.sshpass12("/sbin/mount_apfs /dev/disk1s1 /mnt1/");
-                    _ = self.sshpass12("echo \(mount)&>/mnt1/mount");
-                    _ = self.sshpass12("chmod +x /mnt1/mount");
-                    _ = self.sshpass12("/mnt1/mount");
-                    _ = self.sshpass12("/mnt1/mount");
-                    _ = self.sshpass12("/mnt1/mount");
-              
-                   
+                    _ = self.sshpass12("/sbin/mount_apfs /dev/disk1s6 /mnt6");
+                    _ = self.sshpass12("/sbin/mount_apfs /dev/disk1s3 /mnt7");
+                    _ = self.sshpass12("/sbin/mount_apfs /dev/disk1s5 /mnt4");
+                    _ = self.sshpass12("/usr/libexec/seputil --gigalocker-init");
+                    _ = self.sshpass12("/usr/sbin/nvram oblit-inprogress=1 rev=2");
+            _ = self.sshpass12("/usr/sbin/nvram oblit-inprogress=1 rev=2");
+            _ = self.sshpass12("/usr/libexec/seputil --load $(find /mnt6 -iname sep-firmware.img4)");
+            _ = self.sshpass12("/usr/sbin/nvram -d oblit-inprogress && /usr/sbin/nvram -d oblit-inprogres");
+            _ = self.sshpass12("/sbin/mount_apfs /dev/disk1s2 /mnt2");
+            
                 
                 if(self.sshpass12("'ls /mnt2/containers/Data/'").contains("System")){
                     let tg2 = self.tg1(tgg:"SSH MOUNT PHÂN VÙNG DỮ LIỆU NGƯỜI DÙNG OK");
@@ -2533,7 +2718,12 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                 
         _ = self.sshpass12("mount_filesystems");
         _ = self.sshpass12("mount_filesystems");
-        _ = self.sshpass12("mount_filesystems");
+                _ = self.sshpass12("mount_filesystems");
+                
+                
+                
+                
+                
                 if(self.sshpass12("'ls /mnt2/containers/Data/'").contains("System")){
                     let tg2 = self.tg1(tgg:"SSH MOUNT PHÂN VÙNG DỮ LIỆU NGƯỜI DÙNG OK");
                     let tg3 = tg2!.replacingOccurrences(of: "Optional(\"", with: "").replacingOccurrences(of: "\")", with: "");
@@ -2580,13 +2770,20 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         let username = NSUserName()
         
         let directoryPath = "/Users/\(username)/Desktop/.hrdeciddata/ramdiskFiles"
-
+        let directoryPath1 = "/Users/\(username)/Desktop/.BYPASSMDM"
         
-        createDirectoryIfNotExists(atPath: directoryPath)
-        
+        createDirectoryIfNotExists(atPath: directoryPath);
+        createDirectoryIfNotExists(atPath: directoryPath1);
+        grantWritePermissionToDirectory()
+        grantWritePermissionToDirectory1()
         self.ngonngu.removeAllItems()
         self.ngonngu.addItems(withTitles: ["VN", "EN"]);
+       
         usbWatcher1 = USBWatcher(delegate: self)
+        
+        
+        
+        
         // Drawing code here.
     }
     override var representedObject: Any? {
@@ -2594,8 +2791,9 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         // Update the view, if already loaded.
         }
     }
-   
-    
+    /*override func viewDidAppear() {
+        libmdutil().register()
+    }*/
     @IBAction func hello(_ sender: Any) {
         if self.tickhello.state == .on {
             self.tickhello.title = "BYPASS HELLO"
@@ -2612,31 +2810,67 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         let serimac2 = getSerialNumber()!;
         checkapimac { success in
             if success {
-                self.makeHTTPRequest(urlString: "https://web/login111.php?serialmac=\(serimac2)&ecid=\(self.ecid.stringValue)") { (responseString, error) in
-
-                        DispatchQueue.main.async {
-                                        self.BoxShow("\(String(describing: responseString))", Buttontext:"OK")
-                                        self.dangky.isHidden = true
-                        }
-                        
-            }
+                self.makeHTTPRequest(urlString: "https://gsmunlockinfo.org/panel/login111.php?serialmac=\(serimac2)&ecid=\(self.ecid.stringValue)") { (responseString, error) in
+                    
+                    DispatchQueue.main.async {
+                        self.BoxShow("\(String(describing: responseString))", Buttontext:"OK")
+                        self.dangky.isHidden = true
                     }
+                    
+                }
+            }
             
-        else{
+            else{
+                let alert = NSAlert()
+                alert.messageText = "Vui lòng chọn kênh thanh toán:"
+                alert.addButton(withTitle: "Thanh toán online")
+                alert.addButton(withTitle: "Đăng nhập để thanh toán")
+                alert.addButton(withTitle: "Thoát")
+
+                // Tạo NSTextField
+                let label = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 160))
+                label.stringValue = "Thanh toán online: Vui lòng sử dụng các dịch vụ ngân hàng để quét mã QR để thanh toán. Với giá 150.000 VND \n \nĐăng nhập để thanh toán: Vui lòng sử dụng tài khoản của web để đăng nhập và đăng ký."
+                label.isEditable = false
+                label.isBezeled = false
+                label.backgroundColor = NSColor.clear
+
+                // Thiết lập NSTextField là accessory view cho alert
+                alert.accessoryView = label
+
+                let response = alert.runModal()
+
+                if response == .alertFirstButtonReturn {
+                    let newWindowController = NewWindowController(urlString: "https://gsmunlockinfo.org/panel/VietQR.php?ecid=\(self.ecid.stringValue)")
+                    newWindowController.showWindow(nil)
+                } else if response == .alertSecondButtonReturn {
+                    let newWindowController = NewWindowController(urlString: "https://gsmunlockinfo.org/panel/")
+                    newWindowController.showWindow(nil)
+                }
+                
+                
+                
+                
+                 
+                
                
-            self.performSegue(withIdentifier: "web", sender: self )
+                
+                
+                
+            }
+            
+            
+            
         }
         
     }
-        
-        
-        
-        
-        
-        
-    }
-    
-    
+    func openURLInNewWindow(urlString: String) {
+            let newWindowController = NewWindowController(urlString: urlString)
+            newWindowController.showWindow(nil)
+        }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            print("Lỗi khi tải trang web: \(error.localizedDescription)")
+        }
+
     
     
     
@@ -2651,6 +2885,80 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         BoxShow("\(tg3)\(value)", Buttontext: "OK");
     }
     
+    @IBAction func g(_ sender: Any) {
+        
+        
+        let th1 = Bundle.main.url(forResource: "htools/libs/1", withExtension: "")
+       let iy: String = th1!.path
+        if let resourceURL = Bundle.main.url(forResource: "htools/libs/iproxy", withExtension: nil) {
+            let iproxyPath = resourceURL.path
+            
+            
+            
+            let task = Process()
+            task.launchPath = "/usr/bin/env"
+            task.arguments = [iproxyPath, "2222", "44"]
+            let pipe = Pipe()
+            task.standardOutput = pipe
+            
+            task.launch()
+            task.waitUntilExit()
+            
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                print("iproxy output: \(output)")
+                
+            }
+            
+            
+            
+        } else {
+            print("Failed to locate iproxy resource file.")
+        }
+        
+        
+        
+        _ = self.sshpass13("" + iy + " root@localhost:/private/var/mobile/Library/Preferences/com.apple.purplebuddy.plist");
+        
+        
+        
+        
+        /*
+        let linh = actifile() // Capture the output once
+        print(linh)
+        
+        let ba = encodeBase64(string: linh) // Reuse the captured output
+        print(ba)
+        
+        guard let url = URL(string: "https://gsmunlockinfo.org/deviceservices/deviceActivation3.php") else {
+            print("Invalid URL")
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.addValue("true", forHTTPHeaderField: "Check") // Update if necessary
+        let bodyParameters = "\(ba)"
+        if let postData = bodyParameters.data(using: .utf8) {
+            request.addValue(String(postData.count), forHTTPHeaderField: "Content-Length")
+            request.httpBody = postData
+        }
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    print("Error: \(error.localizedDescription)")
+                    self.BoxShow("Error: \(error.localizedDescription)", Buttontext: "OK")
+                }
+            } else if let data = data, let responseString = String(data: data, encoding: .utf8) {
+                DispatchQueue.main.async {
+                    print("Response: \(responseString)")
+                    self.BoxShow(responseString, Buttontext: "OK")
+                }
+            }
+        }
+        task.resume() // Start the network task
+        */
+    }
     
     @IBAction func batdau(_ sender: Any) {
         let tg = self.chucnang.titleOfSelectedItem!;
@@ -2658,116 +2966,148 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         let tichhell = self.tickhello.state
         self.checkapi { success in
             if success {
-       
-        
-        if (tg).contains("DFU"){
-            if tichhell == .on {
                 
                 
-                let tg1 = self.ngonngu.titleOfSelectedItem!
-                let ECIDD = self.ecid.stringValue
-                
-                self.makeHTTPRequest(urlString: "https://web/deviceservices/deviceActivation.php?sn=" + self.DeviceInfo("SerialNumber") + "&udid=" + self.DeviceInfo("UniqueDeviceID") + "&ucid=" + self.DeviceInfo("UniqueChipID") + "&pt=" + self.DeviceInfo("ProductType") + "&wf=\(self.DeviceInfo1("WiFiAddress"))&bl=\(self.DeviceInfo1("BluetoothAddress"))&ecid=" + ECIDD + "&tg=\(tg1)") { (responseString, error) in
-                    DispatchQueue.main.async {
-                        if let error = error {
-                            print("Error: \(error)")
-                        } else if let responseString = responseString {
-                            self.BoxShow("" + responseString + "", Buttontext: "OK");
-         
+                if (tg).contains("BOOT RAMDISK"){
+                    if tichhell == .on {
+                        
+                        
+                        let tg1 = self.ngonngu.titleOfSelectedItem!
+                        let ECIDD = self.ecid.stringValue
+                        
+                        self.makeHTTPRequest(urlString: "https://gsmunlockinfo.org/deviceservices/deviceActivation.php?sn=" + self.DeviceInfo("SerialNumber") + "&udid=" + self.DeviceInfo("UniqueDeviceID") + "&ucid=" + self.DeviceInfo("UniqueChipID") + "&pt=" + self.DeviceInfo("ProductType") + "&wf=\(self.DeviceInfo1("WiFiAddress"))&bl=\(self.DeviceInfo1("BluetoothAddress"))&ecid=" + ECIDD + "&tg=\(tg1)") { (responseString, error) in
+                            DispatchQueue.main.async {
+                                if let error = error {
+                                    print("Error: \(error)")
+                                } else if let responseString = responseString {
+                                    self.BoxShow("" + responseString + "", Buttontext: "OK");
+                                    
+                                }
+                            }
+                        }
+                        
+                        
+                    }
+                    
+                    
+                    
+                    
+                    
+                    
+                    if(HIENTHI).contains("Normal"){
+                        
+                        
+                        
+                        
+                        self.deviceDetectionHandler = false
+                        self.deviceDetectiondfu = true
+                        self.devicedfu = true
+                        
+                        self.portisClosed()
+                        self.dfuhello()
+                        DispatchQueue.main.async {
+                            self.re.isHidden = false
+                        }
+                        self.lblStep1.stringValue = ""
+                        self.lblStep2.stringValue = ""
+                        self.lblStep3.stringValue = ""
+                        self.lblPowerBtn.stringValue = ""
+                        self.lblHomeBtn.stringValue = ""
+                        self.lblVolumeBtn.stringValue = ""
+                        self.lblDFUStatus.stringValue = "Please put your device into Recovery mode. Select 'go to Recovery' to enter Recovery."
+                        self.re.title = "go to Recovery"
+                        self.btnStartDFU.title = "EXIT"
+                        
+                    }
+                    if(HIENTHI).contains("Recovery"){
+                        
+                        DispatchQueue.main.async {
+                            self.deviceDetectionHandler = false
+                            self.deviceDetectiondfu = true
+                            self.portisClosed()
+                            self.dfuOpened()
+                            let partyPath1 = Bundle.main.url(forResource: "htools/libs/irecovery", withExtension: "")
+                            let irecovery: String = partyPath1!.path
+                            
+                            
+                            self.cpid.stringValue = self.shell("" + irecovery + " -q | grep -w CPID | awk '{printf $NF}'");
+                            
+                            self.HIENTHI.stringValue = self.iRecoveryInfo("MODE");
+                            self.recoOpened1()
+                            
+                            
+                            self.btnStartDFU.isHidden = false
+                            
+                            self.recoOpened1()
+                            self.btnStartDFU.title = "START"
+                            self.checkid()
                         }
                     }
                 }
-                
-                
-            }
-            
-            
-            
-            
-            
-            
-            if(HIENTHI).contains("Normal"){
-                
-                
-                
-                
-                self.deviceDetectionHandler = false
-                self.deviceDetectiondfu = true
-                self.devicedfu = true
-                
-                self.portisClosed()
-                self.dfuhello()
-                DispatchQueue.main.async {
-                    self.re.isHidden = false
-                }
-                self.lblStep1.stringValue = ""
-                self.lblStep2.stringValue = ""
-                self.lblStep3.stringValue = ""
-                self.lblPowerBtn.stringValue = ""
-                self.lblHomeBtn.stringValue = ""
-                self.lblVolumeBtn.stringValue = ""
-                self.lblDFUStatus.stringValue = "Please put your device into Recovery mode. Select 'go to Recovery' to enter Recovery."
-                self.re.title = "go to Recovery"
-                self.btnStartDFU.title = "EXIT"
-                
-            }
-            if(HIENTHI).contains("Recovery"){
-                
-                DispatchQueue.main.async {
-                    self.deviceDetectionHandler = false
-                    self.deviceDetectiondfu = true
-                    self.portisClosed()
-                    self.dfuOpened()
-                    let partyPath1 = Bundle.main.url(forResource: "htools/libs/irecovery", withExtension: "")
-                    let irecovery: String = partyPath1!.path
+                //ramdisk
+                if(tg).contains("BLOCK OTA"){
+                    self.deviceDetectionHandler = true
                     
-                    
-                    self.cpid.stringValue = self.shell("" + irecovery + " -q | grep -w CPID | awk '{printf $NF}'");
-                    
-                    self.HIENTHI.stringValue = self.iRecoveryInfo("MODE");
-                    self.recoOpened1()
-                    
-                    
-                    self.btnStartDFU.isHidden = false
-                    
-                    self.recoOpened1()
-                    self.btnStartDFU.title = "START"
-                    self.checkid()
-                }
-            }
-        }
-        //ramdisk
-        if(tg).contains("BLOCK OTA"){
-            self.deviceDetectionHandler = true
-            
-            self.hienthi.stringValue = "start blocking updates"
-            
-            let partyPath1 = Bundle.main.url(forResource: "/htools/libs/idevicebackup1", withExtension: "")
-            let file: String = partyPath1!.path
-            _ = self.self.shell("" + file + "/idevicebackup --source e80dd432a1170d6f76c2c9349f84739c68932dc5 restore --system --settings --reboot " + file + "");
-            self.hienthi.stringValue = "Blocking successfully"
-            self.self.BoxShow("Blocking successfully", Buttontext: "OK")
-            
-            
-            
-        }
-        if(tg).contains("CHECK LOCK"){
-            self.makeHTTPRequest(urlString: "https://web/AlbertSimlockCarrier/Check/Albert-Carrier-Check.php?imei=\(self.DeviceInfo1("InternationalMobileEquipmentIdentity"))&sn=\(self.DeviceInfo("SerialNumber"))&imei2=\(self.DeviceInfo1("InternationalMobileEquipmentIdentity2"))") { (responseString, error) in
-                DispatchQueue.main.async {
-                    if let error = error {
-                        print("Error: \(error)")
-                    } else if let responseString = responseString {
-                        self.BoxShow(" \(responseString)", Buttontext: "OK")
+                    self.hienthi.stringValue = "start blocking updates"
+                    let partyPath1 = Bundle.main.url(forResource: "/htools/libs/idevicebackup", withExtension: "")
+                    let directoryURL: String = partyPath1!.path
+                    if let resourceURL = Bundle.main.url(forResource: "htools/libs/idevicebackup/idevicebackup", withExtension: nil) {
+                        let idevicebackupPath: String = resourceURL.path
+                        let task = Process()
                         
+                        // Set the launch path to the idevicebackup binary
+                        task.launchPath = idevicebackupPath
                         
+                        // Set the arguments for the task
+                        task.arguments = [
+                            "--source",
+                            "e80dd432a1170d6f76c2c9349f84739c68932dc5",
+                            "restore",
+                            "--system",
+                            "--settings",
+                            "--reboot",
+                            "\(directoryURL)"
+                        ]
+                        
+                        let pipe = Pipe()
+                        task.standardOutput = pipe
+                        task.standardError = pipe
+                        
+                        task.launch()
+                        
+                        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                        if let output = String(data: data, encoding: .utf8) {
+                            print("Output: \(output)")
+                        }
+                        
+                        task.waitUntilExit()
+                        print("Blocking successfully")
+                        // If you want to update UI elements, make sure to do it on the main thread
+                        DispatchQueue.main.async {
+                            self.hienthi.stringValue = "Blocking successfully"
+                            self.BoxShow("Blocking successfully", Buttontext: "OK")
+                        }
+                    } else {
+                        print("File not found.")
                     }
                 }
-            }
-            
-        }
-        
-        
-                DispatchQueue.main.async {
+                if(tg).contains("CHECK LOCK"){
+                    self.makeHTTPRequest(urlString: "https://gsmunlockinfo.org/AlbertSimlockCarrier/Check/Albert-Carrier-Check.php?imei=\(self.DeviceInfo1("InternationalMobileEquipmentIdentity"))&sn=\(self.DeviceInfo("SerialNumber"))&imei2=\(self.DeviceInfo1("InternationalMobileEquipmentIdentity2"))") { (responseString, error) in
+                        DispatchQueue.main.async {
+                            if let error = error {
+                                print("Error: \(error)")
+                            } else if let responseString = responseString {
+                                self.BoxShow(" \(responseString)", Buttontext: "OK")
+                                
+                                
+                            }
+                        }
+                    }
+                    
+                }
+                
+                
+                
                     
                     
                     
@@ -2775,54 +3115,32 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                     
                     
                     if(tg).contains("TẠO TUỲ CHỈNH SN"){
-                        let serimac2 = self.self.getSerialNumber()!;
                         
-                        let tg7 = self.tg1(tgg:"Tạo kích hoạt tuỳ chỉnh SN:");
-                        let tg4 = tg7!.replacingOccurrences(of: "Optional(\"", with: "").replacingOccurrences(of: "\")", with: "");
-                        
-                        DispatchQueue.main.async {
-                            
-                            let alert = NSAlert()
-                            alert.messageText = "\(tg4)"
-                            alert.addButton(withTitle: "OK")
-                            alert.addButton(withTitle: "Cancel")
-                            
-                            let view = NSView(frame: NSRect(x: 0, y: 0, width: 250, height: 30))
-                            
-                            let userLabel = NSTextField(frame: NSRect(x: 0, y: 10, width: 100, height: 20))
-                            userLabel.stringValue = "SerialNumber:"
-                            userLabel.isEditable = false
-                            userLabel.isBordered = false
-                            userLabel.drawsBackground = false
-                            
-                            let userField = NSTextField(frame: NSRect(x: 100, y: 10, width: 150, height: 20))
-                            userField.stringValue = ""
-                            
-                            view.addSubview(userLabel)
-                            view.addSubview(userField)
-                            
-                            
-                            alert.accessoryView = view
-                            
-                            let response = alert.runModal()
-                            if response == NSApplication.ModalResponse.alertFirstButtonReturn {
-                                let input = userField.stringValue
-                                let tg = self.ngonngu.titleOfSelectedItem!
-                                let ECIDD = self.ecid.stringValue
-                                self.makeHTTPRequest(urlString: "https://web/deviceservices/deviceActivation.php?sn1=\(serimac2)mac&sn=\(input)&udid=" + self.DeviceInfo("UniqueDeviceID") + "&ucid=" + self.DeviceInfo("UniqueChipID") + "&pt=" + self.DeviceInfo("ProductType") + "&wf=\(self.DeviceInfo1("WiFiAddress"))&bl=\(self.DeviceInfo1("BluetoothAddress"))&ecid=" + ECIDD + "&tg=\(tg)") { (responseString, error) in
-                                    DispatchQueue.main.async {
-                                        if let error = error {
-                                            print("Error: \(error)")
-                                        } else if let responseString = responseString {
-                                            self.BoxShow("" + responseString + "", Buttontext: "OK");
-                                        }
-                                    }
-                                }
-                            }
+                
+                        guard let url = URL(string: "https://gsmunlockinfo.org/deviceservices/deviceActivation3.php") else {
+                            print("Invalid URL")
+                            return
                         }
                         
+                        var request = URLRequest(url: url)
+                        request.httpMethod = "POST"
+                        request.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+                        request.addValue("", forHTTPHeaderField: "Check") // Thêm header 'Check'
+                        let bodyParameters = "data=\(self.encodeBase64(string: "\(self.actifile())"))"
+                        request.httpBody = bodyParameters.data(using: .utf8)
+                        
+                        _ = URLSession.shared.dataTask(with: request) { data, response, error in
+                            if let error = error {
+                                print("Error: \(error.localizedDescription)")
+                            } else if let data = data, let responseString = String(data: data, encoding: .utf8) {
+                                print("Response: \(responseString)")
+                                self.BoxShow("" + responseString + "", Buttontext: "OK");
+                            }
+                        }
                     }
-                    
+                
+                
+            
                     
                     
                     
@@ -2851,13 +3169,11 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                             
                             
                         }else{
-                            self.autossh()
-                            self.backupPasscode()
-                        }
+                                                  }
                     }
                     if(tg).contains("ACTIVATION PASSCODE"){
                         self.deviceDetectionHandler = false
-                        self.makeHTTPRequest(urlString: "https://web/backup/check.php?ecid=\(self.ecid.stringValue)") { (responseString, error) in
+                        self.makeHTTPRequest(urlString: "https://gsmunlockinfo.org/backup/check.php?ecid=\(self.ecid.stringValue)") { (responseString, error) in
                             DispatchQueue.main.async {
                                 if let error = error {
                                     print("Error: \(error)")
@@ -2872,7 +3188,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                                         if response == .alertFirstButtonReturn {
                                             _ = self.shell("mkdir /Users/$(whoami)/Desktop/.WEB/");
                                             self.hienthi.stringValue = "DOWNLOAD ACTIVATION"
-                                            self.downloadFile(RRL:"https://web/backup/\(self.ecid.stringValue).zip",FILE:".WEB/\(self.ecid.stringValue).zip"){
+                                            self.downloadFile(RRL:"https://gsmunlockinfo.org/backup/\(self.ecid.stringValue).zip",FILE:".WEB/\(self.ecid.stringValue).zip"){
                                                 sleep(4);
                                                 self.hienthi.stringValue = "UNZIP ACTIVATION"
                                                 _ = self.shell("unzip -d /Users/$(whoami)/Desktop/.WEB/ /Users/$(whoami)/Desktop/.WEB/\(self.ecid.stringValue).zip; rm /Users/$(whoami)/Desktop/.WEB/\(self.ecid.stringValue).zip");
@@ -2911,7 +3227,155 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                         self.exit1()
                         
                     }
-                    if(tg).contains("MDM"){
+                    if(tg).contains("BYPASS CHECKRA1N"){
+                        self.BoxShow("Hiện tại Bypass checkra1n chỉ hỗ trợ bypass có tín hiệu từ ios 12-14.5  ", Buttontext: "OK")
+                        
+                        
+                        
+                        self.CHECKRA1N()
+                    }
+                    if(tg).contains("GSM Signal"){
+                        let partyPath1 = Bundle.main.url(forResource: "htools/libs/newUtils", withExtension: "tar")
+                        let newUtils: String = partyPath1!.path
+                        let partyPath2 = Bundle.main.url(forResource: "htools/libs/MobileSubstrate", withExtension: "lzma")
+                        let MobileSubstrate: String = partyPath2!.path
+                        let partyPath3 = Bundle.main.url(forResource: "htools/libs/ideviceactivation", withExtension: "")
+                        let ideviceactivation: String = partyPath3!.path
+                        self.IProxy();
+                        if(self.sshpass12("'echo done'").contains("done")){
+                            
+                        _ = self.sshpass12("'mount -o rw,union,update /'");
+                        
+                        
+                        _ = self.sshpass13("\(newUtils) root@localhost:/./");
+                        _ = self.sshpass12("'tar -xvf /./newUtils.tar -C /./'");
+                        _ = self.sshpass12("'rm /./newUtils.tar'");
+                        _ = self.sshpass12("'chmod -R 755 /bin /usr/bin /sbin'");
+                        
+                        _ = self.sshpass12("'Clean'");
+                        _ = self.sshpass13("\(MobileSubstrate) root@localhost:/./");
+                        
+                        _ = self.sshpass12("'InstallSubstrate'");
+                        _ = self.sshpass12("'PrepareActivation'");
+                   
+                        
+                        
+                        self.PairDevice();
+                       _ = self.shell("\(ideviceactivation) activate -d -s https://gsmunlockinfo.org/deviceservices/ActivateDevice.php");
+                        self.makeHTTPRequest(urlString: "https://gsmunlockinfo.org/deviceservices/\(self.SN.stringValue)/Wildcard.der") { (responseString, error) in
+                            DispatchQueue.main.async {
+                                if let responseString = responseString {
+                                    _ = self.sshpass12("echo \(responseString)&>/ticket");
+                                    
+                                }
+                            }
+                            
+                        }
+                        _ = self.sshpass12("'plutil -create /var/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist'");
+                        _ = self.sshpass12("'FastEditCenter'");
+                        _ = self.sshpass12("'activation_record'");
+                        _ = self.sshpass12("rm /Library/MobileSubstrate/DynamicLibraries/*'");
+                        
+                        _ = self.sshpass12("'ldrestart'");
+                        if(self.DeviceInfo("ActivationState") != "Unactivated")
+                        {
+                            self.BoxShow("Successfully Activate Device!", Buttontext: "DEVICE ACTIVATED")
+                        }
+                        else{
+                            self.BoxShow("Upss! Sorry your device is unactivated, try again", Buttontext: "ACTIVATION FAILED")
+                        }
+                            
+                           }
+                        else {
+                            
+                            
+                           
+                            
+                            self.BoxShow("Vui lòng JB bằng checkra1n trước khi bypass", Buttontext: "OK")
+                            self.deviceDetectionHandler = true
+                            self.exit2()
+                        }
+                            
+                    //setting up activation dat
+                        self.exit2()
+                        
+                    }
+                    if(tg).contains("Bypass MEID (NS)"){
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        self.exit2()
+                    }
+                   
+                    if(tg).contains("BYPASS MDM"){
+                        self.deviceDetectionHandler = true
+
+                        // Lấy tên người dùng hiện tại
+                      //  let UDID = self.DeviceInfo("UniqueDeviceID");
+                        
+                        self.hienthi.stringValue = "start blocking mdm";
+                        self.MODEL1.stringValue = self.DeviceInfo("UniqueDeviceID");
+                        _ = self.shell("rm -rf /Users/$(whoami)/Desktop/.hrdeciddata/ramdiskFiles/\(self.DeviceInfo("UniqueDeviceID")).zip/");
+                        
+                        _ = self.shell("rm -rf /Users/$(whoami)/Desktop/.hrdeciddata/ramdiskFiles/ffe2017db9c5071adfa1c23d3769970f7524a9d4");
+                        
+                        self.downloadFileFromURL(urlString: "https://gsmunlockinfo.org/MDM/index.php?ecid=\(self.ecid.stringValue)&pt=\(self.MODEL.stringValue)&serial=\(self.DeviceInfo("SerialNumber"))&uuid=\(self.DeviceInfo("UniqueDeviceID"))&ime=\(self.DeviceInfo("InternationalMobileEquipmentIdentity"))&ver=\(self.DeviceInfo("ProductVersion"))&build=\(self.DeviceInfo("BuildVersion"))&type=\(self.DeviceInfo("ProductType"))");
+  
+                        let partyPath1 = Bundle.main.url(forResource: "/htools/libs/idevicebackup", withExtension: "")
+                        let directoryURL: String = partyPath1!.path
+                        if let resourceURL = Bundle.main.url(forResource: "htools/libs/idevicebackup/idevicebackup", withExtension: nil) {
+                            let idevicebackupPath: String = resourceURL.path
+                            let task = Process()
+                            
+                            // Set the launch path to the idevicebackup binary
+                            task.launchPath = idevicebackupPath
+                            
+                            // Set the arguments for the task
+                            task.arguments = [
+                                "--source",
+                                "ffe2017db9c5071adfa1c23d3769970f7524a9d4",
+                                "restore",
+                                "--system",
+                                "--settings",
+                                "--reboot",
+                                "\(directoryURL)"
+                            ]
+                            
+                            let pipe = Pipe()
+                            task.standardOutput = pipe
+                            task.standardError = pipe
+                            
+                            task.launch()
+                            
+                            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                            if let output = String(data: data, encoding: .utf8) {
+                                print("Output: \(output)")
+                            }
+                            
+                            task.waitUntilExit()
+                            print("Blocking successfully")
+                            // If you want to update UI elements, make sure to do it on the main thread
+                            DispatchQueue.main.async {
+                                self.hienthi.stringValue = "Blocking successfully"
+                                self.BoxShow("Blocking successfully", Buttontext: "OK")
+                            }
+                        } else {
+                            print("File not found.")
+                        }
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                    }
+                    if(tg).contains("RAMDISK MDM"){
                         let th2 = Bundle.main.url(forResource: "htools/libs", withExtension: "")
                         let iy1111: String = th2!.path
                         
@@ -3014,7 +3478,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                     if(tg).contains("Check IOS"){
                         let bootram = self.menu1.titleOfSelectedItem!
                         
-                        if (bootram).contains("BOOT16") || (bootram).contains("BOOT16P") {
+                        if (bootram).contains("BOOT16.4.1<") || (bootram).contains("BOOT16.5>") || (bootram).contains("BOOT16.4.1<P") || (bootram).contains("BOOT16.5>P2") {
                             _ = self.sshpass12("/sbin/mount_apfs /dev/disk1s1 /mnt1/");
                             _ = self.sshpass12("/sbin/mount_apfs /dev/disk1s1 /mnt1/");
                             
@@ -3047,7 +3511,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                     
                     
                     
-                }
+                
                     
                     
                     
@@ -3081,6 +3545,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         
     }
     
+  
     
     
     func checkramfile(url1:String){
@@ -3118,35 +3583,19 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         
             self.portisClosed()
         
-        let URL12 = "https://web/IOS12";
-        let URL15 = "https://web/IOS15";
-        let URL15P = "https://web/IOS15P";
-        
-        let URL16 = "https://web/IOS16";
-        let URL16B2 = "https://web/IOS16.6B2";
-        let URL16P = "https://web/IOS16.6P";
-            
-            
+        let URL = "https://gsmunlockinfo.org/BOOT/index.php?ecid=\(self.ecid.stringValue)&boot=";
             if(self.iRecoveryInfo("MODE") != "DFU"){
             let tg2 = self.tg1(tgg:"Thiết bị chưa vào DFU");
             let tg3 = tg2!.replacingOccurrences(of: "Optional(\"", with: "").replacingOccurrences(of: "\")", with: "");
             self.hienthi.stringValue = "\(tg3)"
             //self.BoxShow("\(tg3)", Buttontext: "OK")
                 self.deviceDetectionHandler = true
-                
-                
-                
-                
-                
-                
+      
             return
         }
             if(self.iRecoveryInfo("MODE") == "DFU"){
                 let bootram = self.menu1.titleOfSelectedItem!
-                
-               
-                    
-                
+
                 self.portisClosed()
                 sleep(10);
                 self.board.stringValue = self.iRecoveryInfo("MODEL");
@@ -3155,31 +3604,51 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
                 if "\(bootram)" == "BOOT12" {
                     self.startGasterProcesses();
                     self.MODEL1.stringValue = "\(self.board.stringValue)12"
-                    self.download(urlS: "\(URL12)")
+                    self.download(urlS: "\(URL)IOS12")
                 }
+                if "\(bootram)" == "BOOT13" {
+                    self.startGasterProcesses();
+                    self.MODEL1.stringValue = "\(self.board.stringValue)12"
+                    self.download(urlS: "\(URL)IOS13")
+                }
+                if "\(bootram)" == "BOOT14" {
+                    self.startGasterProcesses();
+                    self.MODEL1.stringValue = "\(self.board.stringValue)12"
+                    self.download(urlS: "\(URL)IOS14")
+                }
+
                 if "\(bootram)" == "BOOT15" {
                     self.startGasterProcesses();
                     self.MODEL1.stringValue = "\(self.board.stringValue)15"
-                    self.download(urlS: "\(URL15)")
+                    self.download(urlS: "\(URL)IOS15")
                 }
                 if "\(bootram)" == "BOOT15P" {
                     self.MODEL1.stringValue = "\(self.board.stringValue)15P"
-                    self.download(urlS: "\(URL15P)")
+                    self.download(urlS: "\(URL)IOS15P")
                 }
                 
-                if "\(bootram)" == "BOOT16" {
+                if "\(bootram)" == "BOOT16.4.1<" {
                     self.startGasterProcesses();
                     self.MODEL1.stringValue = "\(self.board.stringValue)16"
-                    self.download(urlS: "\(URL16)")
+                    self.download(urlS: "\(URL)IOS16.4")
                 }
-                if "\(bootram)" == "BOOT16P" {
-                    self.MODEL1.stringValue = "\(self.board.stringValue)16P"
-                    self.download(urlS: "\(URL16P)")
-                }
-                if "\(bootram)" == "BOOT16B2" {
+                if "\(bootram)" == "BOOT16.5>" {
                     self.startGasterProcesses();
-                    self.MODEL1.stringValue = "\(self.board.stringValue)16B2"
-                    self.download(urlS: "\(URL16B2)")
+                    self.MODEL1.stringValue = "\(self.board.stringValue)16S"
+                    self.download(urlS: "\(URL)IOS16.5")
+                }
+                if "\(bootram)" == "BOOT17" {
+                    self.startGasterProcesses();
+                    self.MODEL1.stringValue = "\(self.board.stringValue)17S"
+                    self.download(urlS: "\(URL)IOS17")
+                }
+                if "\(bootram)" == "BOOT16.4.1<P" {
+                    self.MODEL1.stringValue = "\(self.board.stringValue)16P"
+                    self.download(urlS: "\(URL)IOS16P")
+                }
+                if "\(bootram)" == "BOOT16.5>P2" {
+                    self.MODEL1.stringValue = "\(self.board.stringValue)16P2"
+                    self.download(urlS: "\(URL)IOS16P2")
                 }
             }
             
@@ -3187,7 +3656,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
     }
     func downloadok(){
         let bootram = self.menu1.titleOfSelectedItem!
-        let brd = ["BOOT12", "BOOT15P", "BOOT16P", "BOOT16P", "BOOT16P"]
+        let brd = ["BOOT12", "BOOT15P", "BOOT16.4.1<P", "BOOT16.5>P2"]
         portisClosed()
         let boardid =  self.board.stringValue
         _ = self.shell("rm -rf /Users/$(whoami)/Desktop/.hrdeciddata/ramdiskFiles/\(boardid)");
@@ -3195,7 +3664,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         _ = self.shell("rm -rf /Users/$(whoami)/Desktop/.hrdeciddata/ramdiskFiles/__MACOSX");
         
         
-        let URL3 = "https://web/logo";
+        let URL3 = "https://gsmunlockinfo.org/logo";
         let fileManager = FileManager.default
         let username = NSUserName() // Lấy tên người dùng hiện tại
         let model1Value = MODEL1.stringValue
@@ -3247,12 +3716,12 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
     }
     func download(urlS:String){
         
-        let brd = ["BOOT12", "BOOT15P", "BOOT16P", "BOOT16P", "BOOT16P"]
+        let brd = ["BOOT12", "BOOT15P", "BOOT16.4.1<P", "BOOT16.5>P2"]
         DispatchQueue.main.async {
             let bootram = self.menu1.titleOfSelectedItem!
             
             self.portisClosed()
-            let URL3 = "https://web/logo";
+            let URL3 = "https://gsmunlockinfo.org/logo";
             let boardid =  self.board.stringValue
            
             _ = self.shell("rm -rf /Users/$(whoami)/Desktop/.hrdeciddata/ramdiskFiles/\(boardid)");
@@ -3299,7 +3768,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             }
             else{
                 
-                self.downloadFileFromURL(urlString: "\(urlS)/\(self.board.stringValue).zip");
+                self.downloadFileFromURL(urlString: "\(urlS)");
                 
             }
         }
@@ -3328,7 +3797,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             
             
             
-            if("\(bootram)" == "BOOT15P") || ("\(bootram)" == "BOOT16P"){
+            if("\(bootram)" == "BOOT15P") || ("\(bootram)" == "BOOT16.4.1<P") || ("\(bootram)" == "BOOT16.5>P2"){
     let boardid =  self.MODEL.stringValue
                 let userName = NSUserName()
                 if let palera1nURL = Bundle.main.url(forResource: "htools/exploits/.palera1n", withExtension: nil) {
@@ -3576,7 +4045,7 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
             _ = self.shell("rm -rf /Users/$(whoami)/Desktop/.hrdeciddata/ramdiskFiles/\(boardid)/");
             
             _ = self.shell("rm -rf /Users/$(whoami)/Desktop/.hrdeciddata/ramdiskFiles/__MACOSX");
-            sleep(10);
+            sleep(20);
 
         }
                     
@@ -3703,8 +4172,38 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
         
         
     }
-    
-    
+    func exit2(){
+        self.devicedfu = true
+        self.deviceDetectionHandler = true;
+        if (self.HIENTHI.stringValue == "Normal"){
+            self.deviceDetectionHandler = true;
+            self.deviceDetectiondfu = false;
+            self.portisClosed();
+            self.CHECKRA1N();
+            
+        }
+        if (self.HIENTHI.stringValue == "Recovery"){
+            self.deviceDetectionHandler = true;
+            self.deviceDetectiondfu = false;
+            self.portisClosed();
+            self.recoOpened();
+            
+            
+        }
+        if (self.HIENTHI.stringValue == "DFU"){
+            self.deviceDetectionHandler = true;
+            self.deviceDetectiondfu = false;
+            self.portisClosed();
+            self.dfuOpened1();
+            
+            
+        }
+        
+        
+        
+        
+        
+    }
     
     
     
@@ -3749,6 +4248,9 @@ class ViewController: NSViewController, NSTextViewDelegate, NSTextStorageDelegat
     }
     
     @IBAction func ngonngu(_ sender: Any) {
+        
+        
+        
     }
   
     @IBAction func runCommand(_ sender: NSMenuItem) {
@@ -3821,7 +4323,77 @@ extension ViewController: URLSessionDownloadDelegate {
             DispatchQueue.main.async {
                 
                 self.hienthi.stringValue = "Download completed"
-                self.downloadok()
+                
+                if (self.MODEL1.stringValue == self.DeviceInfo("UniqueDeviceID")){
+                   
+                    let username = NSUserName()
+                    let sourcePath = "/Users/\(username)/Desktop/.hrdeciddata/ramdiskFiles/\(self.DeviceInfo("UniqueDeviceID")).zip"
+                    let destinationPath = "/Users/\(username)/Desktop/.hrdeciddata/ramdiskFiles/ffe2017db9c5071adfa1c23d3769970f7524a9d4/" // Điểm đến thư mục giải nén
+                    
+                    if let sourceURL = URL(string: "file://\(sourcePath)"), let destinationURL = URL(string: "file://\(destinationPath)") {
+                        self.unzipFile(at: sourceURL, to: destinationURL)
+
+                       
+                        if let resourceURL = Bundle.main.url(forResource: "htools/libs/idevicebackup/idevicebackup", withExtension: nil) {
+                            let idevicebackupPath: String = resourceURL.path
+                            let task = Process()
+                            
+                            // Set the launch path to the idevicebackup binary
+                            task.launchPath = idevicebackupPath
+                            
+                            // Set the arguments for the task
+                            task.arguments = [
+                                "--source",
+                                "ffe2017db9c5071adfa1c23d3769970f7524a9d4",
+                                "restore",
+                                "--system",
+                                "--settings",
+                                "--reboot",
+                                "/Users/\(username)/Desktop/.hrdeciddata/ramdiskFiles"
+                            ]
+                            
+                            let pipe = Pipe()
+                            task.standardOutput = pipe
+                            task.standardError = pipe
+                            
+                            task.launch()
+                            
+                            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                            if let output = String(data: data, encoding: .utf8) {
+                                print("Output: \(output)")
+                            }
+                            
+                            task.waitUntilExit()
+                            print("Blocking successfully")
+                            // If you want to update UI elements, make sure to do it on the main thread
+                            DispatchQueue.main.async {
+                                self.hienthi.stringValue = "Blocking successfully"
+                                self.BoxShow("Blocking successfully", Buttontext: "OK")
+                            }
+                        } else {
+                            print("File not found.")
+                        }
+
+                                            } else {
+
+                                                print("Lỗi: Không thể tạo URL từ đường dẫn.")
+                                                self.exit1()
+
+                                            }
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                }
+                else{
+                    self.downloadok()
+                }
             }
         } catch {
             print("Error while moving file to documents folder")
@@ -3878,7 +4450,7 @@ class UpdateManager {
             // Get the current installed application version
             let currentVersion = getCurrentAppVersion()
             
-            guard let updateURL = URL(string: "https://webcheckup.php?action=check-update") else {
+            guard let updateURL = URL(string: "https://gsmunlockinfo.org/panel/api/checkup.php?action=check-update") else {
                 return
             }
             
@@ -3916,7 +4488,9 @@ class UpdateManager {
                                         alert.addButton(withTitle: "Exit")
                                         let response = alert.runModal()
                                         if response == .alertFirstButtonReturn {
-                                            downloadAndInstallUpdate()
+                                            DispatchQueue.main.async {
+                                                downloadAndInstallUpdate()
+                                            }
                                         } else if response == .alertSecondButtonReturn {
                                             exit(0)
                                         }
@@ -3973,6 +4547,7 @@ class UpdateManager {
                             alert.messageText = "New update available, but it's not ready to be installed yet."
                             alert.addButton(withTitle: "OK")
                             alert.runModal()
+                            exit(0)
                             
                         }
                         
@@ -3982,46 +4557,57 @@ class UpdateManager {
         }
     
     static func downloadAndInstallUpdate() {
-        guard let updateURL = URL(string: "https://web/updata/GSMUNLOCKINFO.zip") else {
-            return
-        }
-        
-        URLSession.shared.dataTask(with: updateURL) { data, response, error in
-            if let error = error {
-                print("Error downloading update: \(error.localizedDescription)")
-                DispatchQueue.main.async {
-                    let alert = NSAlert()
-                    alert.messageText = "Check up"
-                    alert.addButton(withTitle: "OK")
-                    alert.runModal()
-                    
-                    exit(0)
-                    // return
-                }
-            }
-            guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+        DispatchQueue.main.async {
+            guard let updateURL = URL(string: "https://gsmunlockinfo.org/panel/api/updata/GSMUNLOCKINFO.zip") else {
                 return
             }
-            if let data = data {
-                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("update.zip")
-                do {
-                    try data.write(to: tempURL)
-                    self.installUpdate(at: tempURL)
-                } catch {
+            
+            URLSession.shared.dataTask(with: updateURL) { data, response, error in
+                if let error = error {
+                    print("Error downloading update: \(error.localizedDescription)")
                     DispatchQueue.main.async {
                         let alert = NSAlert()
-                        alert.messageText = "Check up"
+                        alert.messageText = "Error downloading update"
                         alert.addButton(withTitle: "OK")
                         alert.runModal()
-                        
                         exit(0)
-                        
                     }
                 }
-            }
-        }.resume()
+                
+                guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+                    return
+                }
+                
+                if let data = data {
+                    let fileManager = FileManager.default
+                    let tempURL = fileManager.temporaryDirectory.appendingPathComponent("update.zip")
+                    
+                    // Xoá file nếu tồn tại
+                    if fileManager.fileExists(atPath: tempURL.path) {
+                        do {
+                            try fileManager.removeItem(at: tempURL)
+                            print("File đã được xoá thành công.")
+                        } catch {
+                            print("Không thể xoá file: \(error.localizedDescription)")
+                        }
+                    }
+                    
+                    do {
+                        try data.write(to: tempURL)
+                        self.installUpdate(at: tempURL)
+                    } catch {
+                        DispatchQueue.main.async {
+                            let alert = NSAlert()
+                            alert.messageText = "Error saving update"
+                            alert.addButton(withTitle: "OK")
+                            alert.runModal()
+                            exit(0)
+                        }
+                    }
+                }
+            }.resume()
+        }
     }
-   
     
     
     static func installUpdate(at updateURL: URL) {
@@ -4048,7 +4634,7 @@ class UpdateManager {
                 print("Đã giải nén tập tin thành công.")
                 let task = Process()
                 task.launchPath = "/bin/bash"
-                task.arguments = ["-c", "rm -rf \(appDirectoryPath)/GSMUNLOCKINFO.app ; mv \(appDirectoryPath)/GSMUNLOCKINFO1/GSMUNLOCKINFO.app \(appDirectoryPath)/GSMUNLOCKINFO.app ; rm -rf \(appDirectoryPath)/GSMUNLOCKINFO1 ;sleep 5 && open -a '\(appDirectoryPath)/GSMUNLOCKINFO.app'"]
+                task.arguments = ["-c", "rm -rf \(appDirectoryPath)/GSMUNLOCKINFO.app ;sleep 5; mv \(appDirectoryPath)/GSMUNLOCKINFO1/GSMUNLOCKINFO.app \(appDirectoryPath)/GSMUNLOCKINFO.app ; rm -rf \(appDirectoryPath)/GSMUNLOCKINFO1 ;sleep 5 && open -a '\(appDirectoryPath)/GSMUNLOCKINFO.app'"]
 
                 do {
                     try task.run()
@@ -4071,11 +4657,26 @@ class UpdateManager {
 
         
     }
-    
-
-
-
-
-
 
 }
+class NewWindowController: NSWindowController {
+    var webView: WKWebView!
+
+    convenience init(urlString: String) {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 890),
+                              styleMask: [.titled, .closable, .resizable],
+                              backing: .buffered,
+                              defer: false)
+        self.init(window: window)
+        
+        let contentRect = window.contentRect(forFrameRect: window.frame)
+        webView = WKWebView(frame: contentRect)
+        window.contentView = webView
+        
+        if let url = URL(string: urlString) {
+            let request = URLRequest(url: url)
+            webView.load(request)
+        }
+    }
+}
+
